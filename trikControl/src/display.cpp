@@ -12,8 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. */
 
-#include "display.h"
-
+#include <QtCore>
 #if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
 	#include <QtGui/QStackedLayout>
 	#include <QtGui/QLabel>
@@ -25,7 +24,8 @@
 
 #include "src/guiWorker.h"
 
-using namespace trikControl;
+#include "display.h"
+namespace trikControl {
 
 Display::Display(QThread &guiThread)
 	: mGuiThread(guiThread)
@@ -68,4 +68,6 @@ void Display::setBackground(QString const &color)
 void Display::hide()
 {
 	emit threadHide();
+}
+
 }

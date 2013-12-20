@@ -51,6 +51,9 @@ public:
 	~Brick();
 
 public slots:
+	/// Raw `system' call
+	void system(QString const &sound);
+	
 	/// Plays given music file on a speaker (in format accepted by aplay utility).
 	void playSound(QString const &soundFileName);
 

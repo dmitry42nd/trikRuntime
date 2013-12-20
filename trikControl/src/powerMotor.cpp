@@ -18,7 +18,7 @@
 
 #include "i2cCommunicator.h"
 
-using namespace trikControl;
+namespace trikControl {
 
 PowerMotor::PowerMotor(I2cCommunicator &communicator, int i2cCommandNumber, bool invert)
 	: mCommunicator(communicator)
@@ -27,6 +27,12 @@ PowerMotor::PowerMotor(I2cCommunicator &communicator, int i2cCommandNumber, bool
 	, mCurrentPower(0)
 {
 }
+
+PowerMotor::~PowerMotor() 
+{
+	powerOff(); 
+}
+
 
 void PowerMotor::setPower(int power)
 {
@@ -55,4 +61,5 @@ int PowerMotor::power() const
 void PowerMotor::powerOff()
 {
 	setPower(0);
+}
 }

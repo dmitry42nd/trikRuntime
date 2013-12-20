@@ -19,20 +19,20 @@
 
 #include "configurer.h"
 #include "i2cCommunicator.h"
-
-using namespace trikControl;
+#include <errno.h>
+namespace trikControl {
 
 Brick::Brick(QThread &guiThread)
 	: mConfigurer(new Configurer())
 	, mI2cCommunicator(NULL)
 	, mDisplay(guiThread)
 {
-	system(mConfigurer->initScript().toStdString().c_str());
+	system(mConfigurer->initScript());
 
 	mI2cCommunicator = new I2cCommunicator(mConfigurer->i2cPath(), mConfigurer->i2cDeviceId());
 
 	foreach (QString const &port, mConfigurer->servoMotorPorts()) {
-		QString const motorType = mConfigurer->servoMotorDefaultType(port);
+		QString const & motorType = mConfigurer->servoMotorDefaultType(port);
 
 		ServoMotor *servoMotor = new ServoMotor(
 				mConfigurer->motorTypeMin(motorType)
@@ -115,10 +115,21 @@ Brick::~Brick()
 	delete mLed;
 }
 
+void Brick::system(QString const &cmd) 
+{
+	int rc = ::system(cmd.toStdString().c_str());
+	if (rc != 0) {
+		int system_errno = errno;
+		if (rc < 0) 
+			qDebug() << "System call failed: '" << cmd << "' with errno=" << system_errno;
+		else (void)0; // non-zero return code is not good at all
+	}
+}
+
 void Brick::playSound(QString const &soundFileName)
 {
-	QString const command = mConfigurer->playSoundCommand().arg(soundFileName);
-	system(command.toStdString().c_str());
+	QString const &command = mConfigurer->playSoundCommand().arg(soundFileName);
+	system(command);
 }
 
 void Brick::stop()
@@ -229,4 +240,5 @@ Display *Brick::display()
 Led *Brick::led()
 {
 	return mLed;
+}
 }

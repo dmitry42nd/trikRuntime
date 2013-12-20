@@ -33,6 +33,7 @@ public:
 	/// Constructor.
 	/// @param invert - true, if power values set by setPower slot shall be negated before sent to motor.
 	PowerMotor(I2cCommunicator &communicator, int i2cCommandNumber, bool invert);
+        ~PowerMotor();
 
 public slots:
 	/// Sets current motor power to specified value, 0 to stop motor.
