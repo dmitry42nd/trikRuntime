@@ -39,13 +39,13 @@ public:
 
 signals:
 	// ??!
-	void padUp(int pad);
-	void wheel(int percent);
-	void pad(int pad, int x, int y);
-	void button(int button, int pressed);
+	void padUp(int pad, int _connectionId);
+	void wheel(int percent, int _connectionId);
+	void pad(int pad, int x, int y, int _connectionId);
+	void button(int button, int pressed, int _connectionId);
 
 private slots:
-	void parse(QString const &message);
+	void parse(QString const &message, int const _connectionId);
 
 private:
 	Q_DISABLE_COPY(Gamepad)

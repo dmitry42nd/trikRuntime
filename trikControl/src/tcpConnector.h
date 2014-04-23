@@ -18,8 +18,14 @@
 #include <QtNetwork/QTcpSocket>
 #include <QtNetwork/QTcpServer>
 #include <QtCore/QScopedPointer>
+#include <QSignalMapper>
 
 namespace trikControl {
+
+const int mCnt = 5;
+const int mIdle = 5;
+const int mIntvl = 5;
+const int mMaxOpenConnections = 4;
 
 /// TCP server.
 class TcpConnector : public QObject
@@ -33,21 +39,28 @@ public:
 
 signals:
 	/// Emitted when there is incoming TCP message.
-	void dataReady(QString const &message);
+	void dataReady(QString const &message, int const connectionId);
 
 public slots:
 	/// Starts a server and begins listening port for incoming connections.
 	void startServer();
 
 private slots:
-	void tcpDisconnected();
 	void connection();
-	void networkRead();
+//	void tcpDisconnected();
+//	void networkRead();
+  void tcpDisconnected(/*int _connectionId*/);
+  void networkRead(/*int _connectionId*/);
 
 private:
 	int mPort;
+  int mOpenConnectionsMask; // [0x0000..0x1111]
+  QScopedPointer<QSignalMapper> mTcpSocketReadyReadSignalMapper;
+  QScopedPointer<QSignalMapper> mTcpSocketDisconnectedSignalMapper;
 	QScopedPointer<QTcpServer> mTcpServer;
-	QScopedPointer<QTcpSocket> mTcpSocket;
+	QScopedPointer<QTcpSocket> mTcpSocket[mMaxOpenConnections]; // !
+
+  int getFreeSocket();
 };
 
 }
