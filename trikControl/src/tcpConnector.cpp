@@ -25,9 +25,10 @@ using namespace trikControl;
 TcpConnector::TcpConnector(int port)
 	: mPort(port)
   , mOpenConnectionsMask()
-  , mTcpSocketReadyReadSignalMapper(new QSignalMapper())
-  , mTcpSocketDisconnectedSignalMapper(new QSignalMapper())
+  , mTcpSocketReadyReadSignalMapper()
+  , mTcpSocketDisconnectedSignalMapper()
 	, mTcpServer(new QTcpServer())
+  , mCn()
 {
 }
 
@@ -41,37 +42,90 @@ void TcpConnector::startServer()
 
 	qDebug() << "TcpServer started";
 	connect(mTcpServer.data(), SIGNAL(newConnection()), this, SLOT(connection()));
+
+  mTcpSocketDisconnectedSignalMapper.reset(new QSignalMapper);
+  mTcpSocketReadyReadSignalMapper.reset(new QSignalMapper);
+
+  connect(mTcpSocketDisconnectedSignalMapper.data(), SIGNAL(mapped(int)), this, SLOT(tcpDisconnected(int)));
+  connect(mTcpSocketReadyReadSignalMapper.data(), SIGNAL(mapped(QObject*)), this, SLOT(networkRead(QObject*)));
+
 }
 
-
-int TcpConnector::getFreeSocket()
+void TcpConnector::removeMappings(int _cnId)
 {
-  for (int i = 0; i < 4; ++i)
-    if(!(mOpenConnectionsMask >> i & 1))
-      return i;
+      mTcpSocketDisconnectedSignalMapper->removeMappings(mTcpSocket[_cnId].data());
+      mTcpSocketReadyReadSignalMapper->removeMappings(mTcpSocket[_cnId].data());
+}
 
-  return -1;
+void TcpConnector::resetMappings()
+{
+  int openConnections = pop(mOpenConnectionsMask);
+
+  for(int i = 0; i < mMaxControls; ++i)
+    mCn[i].reset(new Connection());
+
+  for(int i = 0; i < mMaxControls; ++i)
+  {
+    int cnNum = (i*openConnections/mMaxControls);
+    mCn[cnNum]->mask += 1<<i;
+  }
+
+  int cnCtr = 0;
+  for(int i = 0; i < mMaxControls; ++i)
+  {
+    removeMappings(i);
+    if(mOpenConnectionsMask & (1 << i))
+    {
+      disconnect(mTcpSocket[i].data(), SIGNAL(disconnected()), mTcpSocketDisconnectedSignalMapper.data(), SLOT(map()));
+      disconnect(mTcpSocket[i].data(), SIGNAL(readyRead()), mTcpSocketReadyReadSignalMapper.data(), SLOT(map()));
+
+      mCn[cnCtr]->id = i;
+
+      connect(mTcpSocket[i].data(), SIGNAL(disconnected()), mTcpSocketDisconnectedSignalMapper.data(), SLOT(map()));
+      connect(mTcpSocket[i].data(), SIGNAL(readyRead()), mTcpSocketReadyReadSignalMapper.data(), SLOT(map()));
+
+      mTcpSocketDisconnectedSignalMapper->setMapping(mTcpSocket[i].data(), i);
+      mTcpSocketReadyReadSignalMapper->setMapping(mTcpSocket[i].data(), mCn[cnCtr].data());
+
+      cnCtr++;
+    }
+  }
+
+}
+
+/*
+  _cnId sets on first free yet connection
+  function returns amount of free yet connections
+*/
+int TcpConnector::getFreeSocket(int *_cnId)
+{
+  int freeCns = 0;
+  bool cnIdSet = false;
+  
+  for (int i = 0; i < mMaxControls; i++)
+    if(!(mOpenConnectionsMask & (1 << i)))
+    {
+      freeCns++;
+      if(!cnIdSet)
+      {
+        *_cnId = i;
+        cnIdSet = true;
+      }
+    }
+
+  return freeCns;
 }
 
 void TcpConnector::connection()
 {
   int connectionId;
-  if((connectionId = getFreeSocket()) < 0)
+  if((getFreeSocket(&connectionId)) == 0)
   {
-		qDebug() << "Unable to open new connection. Max amount of open connections is " << mMaxOpenConnections;
+		qDebug() << "Unable to open new connection. Max amount of open connections is " << mMaxControls;
     return;
   }
 
-  disconnect(mTcpSocketDisconnectedSignalMapper.data(), SIGNAL(mapped(int)), this, SLOT(tcpDisconnected(int)));
-  disconnect(mTcpSocketReadyReadSignalMapper.data(), SIGNAL(mapped(int)), this, SLOT(networkRead(int)));
-
-/*
-  mTcpSocketDisconnectedSignalMapper.reset(new QSignalMapper());
-  mTcpSocketReadyReadSignalMapper.reset(new QSignalMapper());
-*/
-
   mTcpSocket[connectionId].reset(mTcpServer->nextPendingConnection());
-
   mTcpSocket[connectionId]->setSocketOption(QAbstractSocket::KeepAliveOption, 1);
   mTcpSocket[connectionId]->setSocketOption(QAbstractSocket::LowDelayOption, 1);
 
@@ -82,47 +136,32 @@ void TcpConnector::connection()
 
   qDebug() << "Set new connection";
 
-/*
-  connect(mTcpSocket[connectionId].data(), SIGNAL(disconnected()), this, SLOT(tcpDisconnected()));
-  connect(mTcpSocket[connectionId].data(), SIGNAL(readyRead()), this, SLOT(networkRead()));
-*/
-
-  connect(mTcpSocket[connectionId].data(), SIGNAL(disconnected()), mTcpSocketDisconnectedSignalMapper.data(), SLOT(map()));
-  connect(mTcpSocket[connectionId].data(), SIGNAL(readyRead()), mTcpSocketReadyReadSignalMapper.data(), SLOT(map()));
-
-  mTcpSocketDisconnectedSignalMapper->setMapping(mTcpSocket[connectionId].data(), connectionId);
-  mTcpSocketReadyReadSignalMapper->setMapping(mTcpSocket[connectionId].data(), connectionId);
-
-  connect(mTcpSocketDisconnectedSignalMapper.data(), SIGNAL(mapped(int)), this, SLOT(tcpDisconnected(int)));
-  connect(mTcpSocketReadyReadSignalMapper.data(), SIGNAL(mapped(int)), this, SLOT(networkRead(int)));
-
   mOpenConnectionsMask += 1 << connectionId;
-  qDebug() << "openConnectionsMask connected: " << mOpenConnectionsMask;
+  resetMappings();
 }
 
-void TcpConnector::tcpDisconnected(/*int _connectionId*/)
+void TcpConnector::tcpDisconnected(int _cnId)
 {
-//  qDebug() << _connectionId;
 
-	mTcpSocket[0/*_connectionId*/]->abort();
-//  mOpenConnectionsMask -= 1 << _connectionId;
-  qDebug() << "openConnectionsMask disconnected: " << mOpenConnectionsMask;
+	mTcpSocket[_cnId]->abort();
+  mOpenConnectionsMask -= 1 << _cnId;
+  resetMappings();
 }
 
-void TcpConnector::networkRead(/*int _connectionId*/)
+void TcpConnector::networkRead(QObject* cn)
 {
-  //qDebug() << _connectionId;
+  Connection* _cn = reinterpret_cast<Connection*>(cn);
 
-	if (!mTcpSocket[0/*_connectionId*/]->isValid()) {
+	if (!mTcpSocket[_cn->id]->isValid()) {
 		return;
 	}
 
 	QString line;
-	while (mTcpSocket[0/*_connectionId*/]->bytesAvailable() > 0) {
+	while (mTcpSocket[_cn->id]->bytesAvailable() > 0) {
 		char data[100];
-		mTcpSocket[0/*_connectionId*/]->readLine(data, 100);
+		mTcpSocket[_cn->id]->readLine(data, 100);
 		line += data;
 	}
 
-	emit dataReady(line, 0/*_connectionId*/);
+	emit dataReady(line, _cn->mask);
 }

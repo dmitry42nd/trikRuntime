@@ -19,25 +19,25 @@ Gamepad::~Gamepad()
 {
 }
 
-void Gamepad::parse(QString const &message, int const _connectionId)
+void Gamepad::parse(QString const &message, int const _cnMask)
 {
 	QStringList const cmd = message.split(" ", QString::SkipEmptyParts);
 	QString const commandName = cmd.at(0).trimmed();
 	if (commandName == "pad") {
 		int const padId = cmd.at(1).trimmed().toInt();
 		if (cmd.at(2).trimmed() == "up") {
-			emit padUp(padId, _connectionId);
+			emit padUp(padId, _cnMask);
 		} else {
 			int const x = cmd.at(2).trimmed().toInt();
 			int const y = cmd.at(3).trimmed().toInt();
-			emit pad(padId, x, y, _connectionId);
+			emit pad(padId, x, y, _cnMask);
 		}
 	} else if (commandName == "btn") {
 		int const buttonCode = cmd.at(1).trimmed().toInt();
-		emit button(buttonCode, 1, _connectionId);
+		emit button(buttonCode, 1, _cnMask);
 	} else if (commandName == "wheel") {
 		int const perc = cmd.at(1).trimmed().toInt();
-		emit wheel(perc, _connectionId);
+		emit wheel(perc, _cnMask);
 	} else {
 		qDebug() << "Unknown command" ;
 	}

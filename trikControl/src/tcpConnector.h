@@ -14,6 +14,10 @@
 
 #pragma once
 
+#include "src/connection.h"
+
+#include <vector>
+
 #include <QtCore/QObject>
 #include <QtNetwork/QTcpSocket>
 #include <QtNetwork/QTcpServer>
@@ -25,7 +29,7 @@ namespace trikControl {
 const int mCnt = 5;
 const int mIdle = 5;
 const int mIntvl = 5;
-const int mMaxOpenConnections = 4;
+const int mMaxControls = 4; // MaxOpenConnections <= mMaxControls
 
 /// TCP server.
 class TcpConnector : public QObject
@@ -47,20 +51,35 @@ public slots:
 
 private slots:
 	void connection();
-//	void tcpDisconnected();
-//	void networkRead();
-  void tcpDisconnected(/*int _connectionId*/);
-  void networkRead(/*int _connectionId*/);
+  void tcpDisconnected(int _cnId);
+  void networkRead(QObject* _cn);
 
 private:
 	int mPort;
   int mOpenConnectionsMask; // [0x0000..0x1111]
+
   QScopedPointer<QSignalMapper> mTcpSocketReadyReadSignalMapper;
   QScopedPointer<QSignalMapper> mTcpSocketDisconnectedSignalMapper;
 	QScopedPointer<QTcpServer> mTcpServer;
-	QScopedPointer<QTcpSocket> mTcpSocket[mMaxOpenConnections]; // !
+	QScopedPointer<QTcpSocket> mTcpSocket[mMaxControls]; // !
 
-  int getFreeSocket();
+  QScopedPointer<Connection> mCn[mMaxControls];
+
+
+  void removeMappings(int _cnId);
+  void resetMappings();
+  int getFreeSocket(int* _cnId);
+  int pop(int x)
+  {
+    x = x - ((x >> 1) & 0x5555);
+    x = (x & 0x3333) + ((x >> 2) & 0x3333);
+    x = (x + (x >> 4)) & 0x0f0f;
+    x = x + (x >> 8);
+    x = x + (x >> 16);
+
+    return x & 0x003f;
+  }
+
 };
 
 }
