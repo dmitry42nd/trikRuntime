@@ -62,24 +62,24 @@ void TcpConnector::resetMappings()
   int openConnections = pop(mOpenConnectionsMask);
 
   for(int i = 0; i < mMaxControls; ++i)
-    mCn[i].reset(new Connection());
+    mCn[i].reset(new GamepadConnection());
 
   for(int i = 0; i < mMaxControls; ++i)
   {
     int cnNum = (i*openConnections/mMaxControls);
-    mCn[cnNum]->mask += 1<<i;
+    mCn[cnNum]->addToMask(1<<i);
   }
 
   int cnCtr = 0;
   for(int i = 0; i < mMaxControls; ++i)
   {
     removeMappings(i);
-    if(mOpenConnectionsMask & (1 << i))
+    if(mOpenConnectionsMask & 1<<i)
     {
+      mCn[cnCtr]->setId(i);
+
       disconnect(mTcpSocket[i].data(), SIGNAL(disconnected()), mTcpSocketDisconnectedSignalMapper.data(), SLOT(map()));
       disconnect(mTcpSocket[i].data(), SIGNAL(readyRead()), mTcpSocketReadyReadSignalMapper.data(), SLOT(map()));
-
-      mCn[cnCtr]->id = i;
 
       connect(mTcpSocket[i].data(), SIGNAL(disconnected()), mTcpSocketDisconnectedSignalMapper.data(), SLOT(map()));
       connect(mTcpSocket[i].data(), SIGNAL(readyRead()), mTcpSocketReadyReadSignalMapper.data(), SLOT(map()));
@@ -103,7 +103,7 @@ int TcpConnector::getFreeSocket(int *_cnId)
   bool cnIdSet = false;
   
   for (int i = 0; i < mMaxControls; i++)
-    if(!(mOpenConnectionsMask & (1 << i)))
+    if(!(mOpenConnectionsMask & 1<<i))
     {
       freeCns++;
       if(!cnIdSet)
@@ -118,25 +118,25 @@ int TcpConnector::getFreeSocket(int *_cnId)
 
 void TcpConnector::connection()
 {
-  int connectionId;
-  if((getFreeSocket(&connectionId)) == 0)
+  int cnId;
+  if((getFreeSocket(&cnId)) == 0)
   {
 		qDebug() << "Unable to open new connection. Max amount of open connections is " << mMaxControls;
     return;
   }
 
-  mTcpSocket[connectionId].reset(mTcpServer->nextPendingConnection());
-  mTcpSocket[connectionId]->setSocketOption(QAbstractSocket::KeepAliveOption, 1);
-  mTcpSocket[connectionId]->setSocketOption(QAbstractSocket::LowDelayOption, 1);
+  mTcpSocket[cnId].reset(mTcpServer->nextPendingConnection());
+  mTcpSocket[cnId]->setSocketOption(QAbstractSocket::KeepAliveOption, 1);
+  mTcpSocket[cnId]->setSocketOption(QAbstractSocket::LowDelayOption, 1);
 
-  int fd = mTcpSocket[connectionId]->socketDescriptor();
+  int fd = mTcpSocket[cnId]->socketDescriptor();
   setsockopt(fd, SOL_TCP, TCP_KEEPCNT, &mCnt, sizeof(mCnt));
   setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &mIdle, sizeof(mIdle));
   setsockopt(fd, SOL_TCP, TCP_KEEPINTVL, &mIntvl, sizeof(mIntvl));
 
   qDebug() << "Set new connection";
 
-  mOpenConnectionsMask += 1 << connectionId;
+  mOpenConnectionsMask += 1 << cnId;
   resetMappings();
 }
 
@@ -144,24 +144,24 @@ void TcpConnector::tcpDisconnected(int _cnId)
 {
 
 	mTcpSocket[_cnId]->abort();
-  mOpenConnectionsMask -= 1 << _cnId;
+  mOpenConnectionsMask -= 1<<_cnId;
   resetMappings();
 }
 
 void TcpConnector::networkRead(QObject* cn)
 {
-  Connection* _cn = reinterpret_cast<Connection*>(cn);
+  GamepadConnection* _cn = qobject_cast<GamepadConnection*>(cn);
 
-	if (!mTcpSocket[_cn->id]->isValid()) {
+	if (!mTcpSocket[_cn->id()]->isValid()) {
 		return;
 	}
 
 	QString line;
-	while (mTcpSocket[_cn->id]->bytesAvailable() > 0) {
+	while (mTcpSocket[_cn->id()]->bytesAvailable() > 0) {
 		char data[100];
-		mTcpSocket[_cn->id]->readLine(data, 100);
+		mTcpSocket[_cn->id()]->readLine(data, 100);
 		line += data;
 	}
 
-	emit dataReady(line, _cn->mask);
+	emit dataReady(line, _cn->mask());
 }

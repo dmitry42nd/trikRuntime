@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "src/connection.h"
+#include "src/gamepad_connection.h"
 
 #include <vector>
 
@@ -63,7 +63,7 @@ private:
 	QScopedPointer<QTcpServer> mTcpServer;
 	QScopedPointer<QTcpSocket> mTcpSocket[mMaxControls]; // !
 
-  QScopedPointer<Connection> mCn[mMaxControls];
+  QScopedPointer<GamepadConnection> mCn[mMaxControls];
 
 
   void removeMappings(int _cnId);
