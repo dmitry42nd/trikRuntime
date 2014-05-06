@@ -8,6 +8,7 @@ using namespace trikControl;
 
 Gamepad::Gamepad(int port)
 	: mListener(new TcpConnector(port))
+  , mPort(port)
 {
 	connect(mListener.data(), SIGNAL(dataReady(QString, int)), this, SLOT(parse(QString, int)));
 	connect(&mNetworkThread, SIGNAL(started()), mListener.data(), SLOT(startServer()));
@@ -42,3 +43,21 @@ void Gamepad::parse(QString const &message, int const _cnMask)
 		qDebug() << "Unknown command" ;
 	}
 }
+
+
+void Gamepad::resetConnection()
+{
+  mNetworkThread.exit();
+
+	disconnect(&mNetworkThread, SIGNAL(started()), mListener.data(), SLOT(startServer()));
+	disconnect(mListener.data(), SIGNAL(dataReady(QString, int)), this, SLOT(parse(QString, int)));
+
+	mListener.reset(new TcpConnector(mPort));
+
+	connect(mListener.data(), SIGNAL(dataReady(QString, int)), this, SLOT(parse(QString, int)));
+	connect(&mNetworkThread, SIGNAL(started()), mListener.data(), SLOT(startServer()));
+
+	mListener->moveToThread(&mNetworkThread);
+	mNetworkThread.start();
+}
+

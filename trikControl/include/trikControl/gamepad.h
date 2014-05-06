@@ -44,6 +44,11 @@ signals:
 	void pad(int pad, int x, int y, int _cnMask);
 	void button(int button, int pressed, int _cnMask);
 
+
+public slots:
+  void resetConnection();
+
+
 private slots:
 	void parse(QString const &message, int const _cnMask);
 
@@ -52,6 +57,7 @@ private:
 
 	QScopedPointer<TcpConnector> mListener;
 	QThread mNetworkThread;
+  int mPort;
 };
 
 }
