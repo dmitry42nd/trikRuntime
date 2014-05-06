@@ -43,7 +43,7 @@ signals:
 	void wheel(int percent, int _cnMask);
 	void pad(int pad, int x, int y, int _cnMask);
 	void button(int button, int pressed, int _cnMask);
-
+  void tcpDisconnected(int _cnId);
 
 public slots:
   void resetConnection();

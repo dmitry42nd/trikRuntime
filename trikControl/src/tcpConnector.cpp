@@ -145,6 +145,8 @@ void TcpConnector::tcpDisconnected(int _cnId)
 
 	mTcpSocket[_cnId]->abort();
   mOpenConnectionsMask -= 1<<_cnId;
+  emit tcpDisconnectedSignal(_cnId);
+
   resetMappings();
 }
 

@@ -11,6 +11,7 @@ Gamepad::Gamepad(int port)
   , mPort(port)
 {
 	connect(mListener.data(), SIGNAL(dataReady(QString, int)), this, SLOT(parse(QString, int)));
+	connect(mListener.data(), SIGNAL(tcpDisconnectedSignal(int)), this, SIGNAL(tcpDisconnected(int)));
 	connect(&mNetworkThread, SIGNAL(started()), mListener.data(), SLOT(startServer()));
 	mListener->moveToThread(&mNetworkThread);
 	mNetworkThread.start();
